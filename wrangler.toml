@@ -1,0 +1,12 @@
+name = "domainsite"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"
+
+[env.production]
+# Cloudflare API 설정 (Pages 대시보드에서 환경 변수로 설정)
+# CF_API_TOKEN = "your_cloudflare_api_token"
+# CF_ZONE_ID = "your_zone_id"
+
+[[kv_namespaces]]
+binding = "DOMAINS_KV"
+id = "your_kv_namespace_id"
