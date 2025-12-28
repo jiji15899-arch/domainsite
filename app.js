@@ -1,72 +1,51 @@
-// 초기 데이터 설정
+// 스토리지 초기화 함수
 async function initStorage() {
-    try {
-        const users = await window.storage.get('users');
-        if (!users) {
-            await window.storage.set('users', JSON.stringify([
-                {username: 'admindomain', password: 'admindomain120327', email: 'admin@domain.com', role: 'admin', status: 'active'}
-            ]));
+    const defaults = {
+        users: [{username: 'admindomain', password: 'admindomain120327', email: 'admin@domain.com', role: 'admin', status: 'active'}],
+        extensions: [{ext: '.com', price: 0, paymentLink: ''}, {ext: '.net', price: 0, paymentLink: ''}, {ext: '.org', price: 0, paymentLink: ''}],
+        domains: [],
+        payments: [],
+        security: {botStartTime: '00:00', botEndTime: '23:59', suspiciousActivities: []}
+    };
+
+    for (const [key, value] of Object.entries(defaults)) {
+        try {
+            await window.storage.get(key);
+        } catch {
+            await window.storage.set(key, JSON.stringify(value));
         }
-    } catch (e) {
-        await window.storage.set('users', JSON.stringify([
-            {username: 'admindomain', password: 'admindomain120327', email: 'admin@domain.com', role: 'admin', status: 'active'}
-        ]));
-    }
-
-    try {
-        const exts = await window.storage.get('extensions');
-        if (!exts) {
-            await window.storage.set('extensions', JSON.stringify([
-                {ext: '.com', price: 0, paymentLink: ''},
-                {ext: '.net', price: 0, paymentLink: ''},
-                {ext: '.org', price: 0, paymentLink: ''}
-            ]));
-        }
-    } catch (e) {
-        await window.storage.set('extensions', JSON.stringify([
-            {ext: '.com', price: 0, paymentLink: ''},
-            {ext: '.net', price: 0, paymentLink: ''},
-            {ext: '.org', price: 0, paymentLink: ''}
-        ]));
-    }
-
-    try {
-        await window.storage.get('domains');
-    } catch (e) {
-        await window.storage.set('domains', JSON.stringify([]));
-    }
-
-    try {
-        await window.storage.get('payments');
-    } catch (e) {
-        await window.storage.set('payments', JSON.stringify([]));
-    }
-
-    try {
-        await window.storage.get('security');
-    } catch (e) {
-        await window.storage.set('security', JSON.stringify({
-            botStartTime: '00:00',
-            botEndTime: '23:59',
-            suspiciousActivities: []
-        }));
     }
 }
 
-// 현재 사용자 가져오기
+// 데이터 가져오기 헬퍼
+async function getData(key) {
+    try {
+        const result = await window.storage.get(key);
+        return JSON.parse(result.value);
+    } catch {
+        return null;
+    }
+}
+
+// 데이터 저장 헬퍼
+async function setData(key, value) {
+    await window.storage.set(key, JSON.stringify(value));
+}
+
+// 현재 사용자
 function getCurrentUser() {
     const user = localStorage.getItem('currentUser');
     return user ? JSON.parse(user) : null;
 }
 
-// 로그인 상태 확인
+// 인증 확인
 function checkAuth() {
     const user = getCurrentUser();
     if (!user) {
         window.location.href = 'login.html';
         return false;
     }
-    if (user.status === 'suspended' || user.status === 'blacklisted') {
+    if (user.status !== 'active') {
         alert('계정이 정지되었습니다.');
         localStorage.removeItem('currentUser');
         window.location.href = 'login.html';
@@ -75,7 +54,7 @@ function checkAuth() {
     return true;
 }
 
-// 관리자 권한 확인
+// 관리자 확인
 function checkAdminAuth() {
     const user = getCurrentUser();
     if (!user || user.role !== 'admin') {
@@ -86,9 +65,9 @@ function checkAdminAuth() {
     return true;
 }
 
-// 네비게이션 메뉴 초기화
-function initPage() {
-    initStorage();
+// 페이지 초기화
+async function initPage() {
+    await initStorage();
     const navMenu = document.getElementById('navMenu');
     if (!navMenu) return;
     
@@ -117,10 +96,15 @@ function logout() {
 // 회원가입
 async function handleRegister(e) {
     e.preventDefault();
-    const username = document.getElementById('username').value;
-    const email = document.getElementById('email').value;
+    const username = document.getElementById('username').value.trim();
+    const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (!username || !email || !password) {
+        alert('모든 필드를 입력해주세요.');
+        return;
+    }
 
     if (password !== confirmPassword) {
         alert('비밀번호가 일치하지 않습니다.');
@@ -128,8 +112,8 @@ async function handleRegister(e) {
     }
 
     try {
-        const result = await window.storage.get('users');
-        const users = JSON.parse(result.value);
+        await initStorage();
+        const users = await getData('users') || [];
         
         if (users.find(u => u.username === username)) {
             alert('이미 존재하는 사용자명입니다.');
@@ -145,23 +129,29 @@ async function handleRegister(e) {
             createdAt: new Date().toISOString()
         });
 
-        await window.storage.set('users', JSON.stringify(users));
+        await setData('users', users);
         alert('회원가입이 완료되었습니다.');
         window.location.href = 'login.html';
     } catch (error) {
-        alert('회원가입 중 오류가 발생했습니다.');
+        console.error('회원가입 오류:', error);
+        alert('회원가입 중 오류가 발생했습니다: ' + error.message);
     }
 }
 
 // 로그인
 async function handleLogin(e) {
     e.preventDefault();
-    const username = document.getElementById('username').value;
+    const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
 
+    if (!username || !password) {
+        alert('사용자명과 비밀번호를 입력해주세요.');
+        return;
+    }
+
     try {
-        const result = await window.storage.get('users');
-        const users = JSON.parse(result.value);
+        await initStorage();
+        const users = await getData('users') || [];
         
         const user = users.find(u => u.username === username && u.password === password);
         
@@ -170,7 +160,7 @@ async function handleLogin(e) {
             return;
         }
 
-        if (user.status === 'suspended' || user.status === 'blacklisted') {
+        if (user.status !== 'active') {
             alert('계정이 정지되었습니다. 관리자에게 문의하세요.');
             return;
         }
@@ -183,15 +173,16 @@ async function handleLogin(e) {
             window.location.href = 'dashboard.html';
         }
     } catch (error) {
-        alert('로그인 중 오류가 발생했습니다.');
+        console.error('로그인 오류:', error);
+        alert('로그인 중 오류가 발생했습니다: ' + error.message);
     }
 }
 
 // 확장자 로드
 async function loadExtensions() {
     try {
-        const result = await window.storage.get('extensions');
-        const extensions = JSON.parse(result.value);
+        await initStorage();
+        const extensions = await getData('extensions') || [];
         const select = document.getElementById('domainExt');
         if (select) {
             select.innerHTML = extensions.map(e => 
@@ -225,9 +216,7 @@ async function checkDomain() {
     const fullDomain = domainName + domainExt;
 
     try {
-        const result = await window.storage.get('domains');
-        const domains = JSON.parse(result.value);
-        
+        const domains = await getData('domains') || [];
         const exists = domains.find(d => d.domain === fullDomain);
 
         if (exists) {
@@ -239,15 +228,14 @@ async function checkDomain() {
             resultDiv.textContent = `${fullDomain}은(는) 등록 가능합니다!`;
             registerForm.style.display = 'block';
 
-            const extResult = await window.storage.get('extensions');
-            const extensions = JSON.parse(extResult.value);
+            const extensions = await getData('extensions') || [];
             const extInfo = extensions.find(e => e.ext === domainExt);
 
             const paymentInfoDiv = document.getElementById('paymentInfo');
             if (extInfo && extInfo.price > 0 && user.role !== 'admin') {
                 paymentInfoDiv.innerHTML = `
                     <p><strong>결제 필요:</strong> ₩${extInfo.price}</p>
-                    <p>결제 링크: <a href="${extInfo.paymentLink}" target="_blank">결제하기</a></p>
+                    ${extInfo.paymentLink ? `<p>결제 링크: <a href="${extInfo.paymentLink}" target="_blank">결제하기</a></p>` : ''}
                     <p>결제 완료 후 관리자 승인이 필요합니다.</p>
                 `;
             } else {
@@ -255,6 +243,7 @@ async function checkDomain() {
             }
         }
     } catch (error) {
+        console.error('도메인 확인 오류:', error);
         alert('도메인 확인 중 오류가 발생했습니다.');
     }
 }
@@ -278,13 +267,11 @@ async function registerDomain() {
     const nameservers = [ns1, ns2, ns3, ns4].filter(ns => ns);
 
     try {
-        const extResult = await window.storage.get('extensions');
-        const extensions = JSON.parse(extResult.value);
+        const extensions = await getData('extensions') || [];
         const extInfo = extensions.find(e => e.ext === domainExt);
 
         if (extInfo && extInfo.price > 0 && user.role !== 'admin') {
-            const paymentResult = await window.storage.get('payments');
-            const payments = JSON.parse(paymentResult.value);
+            const payments = await getData('payments') || [];
             
             payments.push({
                 id: Date.now(),
@@ -296,14 +283,13 @@ async function registerDomain() {
                 createdAt: new Date().toISOString()
             });
 
-            await window.storage.set('payments', JSON.stringify(payments));
+            await setData('payments', payments);
             alert('결제 승인 대기 중입니다. 관리자가 확인 후 도메인이 등록됩니다.');
             window.location.href = 'dashboard.html';
             return;
         }
 
-        const domainResult = await window.storage.get('domains');
-        const domains = JSON.parse(domainResult.value);
+        const domains = await getData('domains') || [];
 
         domains.push({
             domain: fullDomain,
@@ -313,10 +299,11 @@ async function registerDomain() {
             status: 'active'
         });
 
-        await window.storage.set('domains', JSON.stringify(domains));
+        await setData('domains', domains);
         alert('도메인이 성공적으로 등록되었습니다!');
         window.location.href = 'dashboard.html';
     } catch (error) {
+        console.error('도메인 등록 오류:', error);
         alert('도메인 등록 중 오류가 발생했습니다.');
     }
 }
@@ -329,8 +316,7 @@ async function loadUserDomains() {
     const container = document.getElementById('userDomains');
 
     try {
-        const result = await window.storage.get('domains');
-        const domains = JSON.parse(result.value);
+        const domains = await getData('domains') || [];
         const userDomains = domains.filter(d => d.owner === user.username);
 
         if (userDomains.length === 0) {
@@ -350,6 +336,7 @@ async function loadUserDomains() {
             </div>
         `).join('');
     } catch (error) {
+        console.error('도메인 로드 오류:', error);
         container.innerHTML = '<p>도메인을 불러오는 중 오류가 발생했습니다.</p>';
     }
 }
@@ -357,22 +344,17 @@ async function loadUserDomains() {
 // 관리자 데이터 로드
 async function loadAdminData() {
     if (!checkAdminAuth()) return;
-    loadExtensionList();
-    loadPendingPayments();
-    loadUserList();
-    loadAllDomains();
-    loadSecuritySettings();
+    await loadExtensionList();
+    await loadPendingPayments();
+    await loadUserList();
+    await loadAllDomains();
+    await loadSecuritySettings();
 }
 
 // 탭 전환
 function showTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById(tabName).classList.add('active');
     event.target.classList.add('active');
 }
@@ -389,8 +371,7 @@ async function addExtension() {
     }
 
     try {
-        const result = await window.storage.get('extensions');
-        const extensions = JSON.parse(result.value);
+        const extensions = await getData('extensions') || [];
 
         if (extensions.find(e => e.ext === ext)) {
             alert('이미 존재하는 확장자입니다.');
@@ -398,24 +379,24 @@ async function addExtension() {
         }
 
         extensions.push({ext, price, paymentLink});
-        await window.storage.set('extensions', JSON.stringify(extensions));
+        await setData('extensions', extensions);
         
         document.getElementById('newExt').value = '';
         document.getElementById('extPrice').value = '';
         document.getElementById('paymentLink').value = '';
         
-        loadExtensionList();
+        await loadExtensionList();
         alert('확장자가 추가되었습니다.');
     } catch (error) {
+        console.error('확장자 추가 오류:', error);
         alert('확장자 추가 중 오류가 발생했습니다.');
     }
 }
 
-// 확장자 목록 로드
+// 확장자 목록
 async function loadExtensionList() {
     try {
-        const result = await window.storage.get('extensions');
-        const extensions = JSON.parse(result.value);
+        const extensions = await getData('extensions') || [];
         const container = document.getElementById('extensionList');
 
         container.innerHTML = extensions.map((e, i) => `
@@ -437,21 +418,19 @@ async function deleteExtension(index) {
     if (!confirm('정말 삭제하시겠습니까?')) return;
 
     try {
-        const result = await window.storage.get('extensions');
-        const extensions = JSON.parse(result.value);
+        const extensions = await getData('extensions') || [];
         extensions.splice(index, 1);
-        await window.storage.set('extensions', JSON.stringify(extensions));
-        loadExtensionList();
+        await setData('extensions', extensions);
+        await loadExtensionList();
     } catch (error) {
         alert('확장자 삭제 중 오류가 발생했습니다.');
     }
 }
 
-// 결제 승인 대기 목록
+// 결제 승인 대기
 async function loadPendingPayments() {
     try {
-        const result = await window.storage.get('payments');
-        const payments = JSON.parse(result.value);
+        const payments = await getData('payments') || [];
         const pending = payments.filter(p => p.status === 'pending');
         const container = document.getElementById('pendingPayments');
 
@@ -480,14 +459,12 @@ async function loadPendingPayments() {
 // 결제 승인
 async function approvePayment(id) {
     try {
-        const paymentResult = await window.storage.get('payments');
-        const payments = JSON.parse(paymentResult.value);
+        const payments = await getData('payments') || [];
         const payment = payments.find(p => p.id === id);
 
         if (!payment) return;
 
-        const domainResult = await window.storage.get('domains');
-        const domains = JSON.parse(domainResult.value);
+        const domains = await getData('domains') || [];
 
         domains.push({
             domain: payment.domain,
@@ -499,11 +476,11 @@ async function approvePayment(id) {
 
         payment.status = 'approved';
 
-        await window.storage.set('domains', JSON.stringify(domains));
-        await window.storage.set('payments', JSON.stringify(payments));
+        await setData('domains', domains);
+        await setData('payments', payments);
 
         alert('결제가 승인되었습니다.');
-        loadPendingPayments();
+        await loadPendingPayments();
     } catch (error) {
         alert('결제 승인 중 오류가 발생했습니다.');
     }
@@ -512,26 +489,24 @@ async function approvePayment(id) {
 // 결제 거부
 async function rejectPayment(id) {
     try {
-        const result = await window.storage.get('payments');
-        const payments = JSON.parse(result.value);
+        const payments = await getData('payments') || [];
         const payment = payments.find(p => p.id === id);
         
         if (payment) {
             payment.status = 'rejected';
-            await window.storage.set('payments', JSON.stringify(payments));
+            await setData('payments', payments);
             alert('결제가 거부되었습니다.');
-            loadPendingPayments();
+            await loadPendingPayments();
         }
     } catch (error) {
         alert('결제 거부 중 오류가 발생했습니다.');
     }
 }
 
-// 사용자 목록 로드
+// 사용자 목록
 async function loadUserList() {
     try {
-        const result = await window.storage.get('users');
-        const users = JSON.parse(result.value);
+        const users = await getData('users') || [];
         const container = document.getElementById('userList');
 
         container.innerHTML = users.filter(u => u.role !== 'admin').map(u => `
@@ -559,33 +534,31 @@ async function suspendUser(username) {
     if (!confirm('정말 정지하시겠습니까?')) return;
 
     try {
-        const result = await window.storage.get('users');
-        const users = JSON.parse(result.value);
+        const users = await getData('users') || [];
         const user = users.find(u => u.username === username);
         
         if (user) {
             user.status = 'suspended';
-            await window.storage.set('users', JSON.stringify(users));
-            loadUserList();
+            await setData('users', users);
+            await loadUserList();
         }
     } catch (error) {
         alert('사용자 정지 중 오류가 발생했습니다.');
     }
 }
 
-// 사용자 블랙리스트
+// 블랙리스트
 async function blacklistUser(username) {
     if (!confirm('정말 블랙리스트에 등재하시겠습니까?')) return;
 
     try {
-        const result = await window.storage.get('users');
-        const users = JSON.parse(result.value);
+        const users = await getData('users') || [];
         const user = users.find(u => u.username === username);
         
         if (user) {
             user.status = 'blacklisted';
-            await window.storage.set('users', JSON.stringify(users));
-            loadUserList();
+            await setData('users', users);
+            await loadUserList();
         }
     } catch (error) {
         alert('블랙리스트 등재 중 오류가 발생했습니다.');
@@ -595,25 +568,23 @@ async function blacklistUser(username) {
 // 사용자 활성화
 async function activateUser(username) {
     try {
-        const result = await window.storage.get('users');
-        const users = JSON.parse(result.value);
+        const users = await getData('users') || [];
         const user = users.find(u => u.username === username);
         
         if (user) {
             user.status = 'active';
-            await window.storage.set('users', JSON.stringify(users));
-            loadUserList();
+            await setData('users', users);
+            await loadUserList();
         }
     } catch (error) {
         alert('사용자 활성화 중 오류가 발생했습니다.');
     }
 }
 
-// 전체 도메인 로드
+// 전체 도메인
 async function loadAllDomains() {
     try {
-        const result = await window.storage.get('domains');
-        const domains = JSON.parse(result.value);
+        const domains = await getData('domains') || [];
         const container = document.getElementById('allDomains');
 
         if (domains.length === 0) {
@@ -640,21 +611,19 @@ async function deleteDomain(index) {
     if (!confirm('정말 삭제하시겠습니까?')) return;
 
     try {
-        const result = await window.storage.get('domains');
-        const domains = JSON.parse(result.value);
+        const domains = await getData('domains') || [];
         domains.splice(index, 1);
-        await window.storage.set('domains', JSON.stringify(domains));
-        loadAllDomains();
+        await setData('domains', domains);
+        await loadAllDomains();
     } catch (error) {
         alert('도메인 삭제 중 오류가 발생했습니다.');
     }
 }
 
-// 보안 설정 로드
+// 보안 설정
 async function loadSecuritySettings() {
     try {
-        const result = await window.storage.get('security');
-        const security = JSON.parse(result.value);
+        const security = await getData('security') || {botStartTime: '00:00', botEndTime: '23:59', suspiciousActivities: []};
 
         document.getElementById('botStartTime').value = security.botStartTime;
         document.getElementById('botEndTime').value = security.botEndTime;
@@ -681,19 +650,18 @@ async function loadSecuritySettings() {
     }
 }
 
-// 보안봇 설정 업데이트
+// 보안봇 업데이트
 async function updateSecurityBot() {
     const startTime = document.getElementById('botStartTime').value;
     const endTime = document.getElementById('botEndTime').value;
 
     try {
-        const result = await window.storage.get('security');
-        const security = JSON.parse(result.value);
+        const security = await getData('security') || {suspiciousActivities: []};
         
         security.botStartTime = startTime;
         security.botEndTime = endTime;
 
-        await window.storage.set('security', JSON.stringify(security));
+        await setData('security', security);
         alert('보안봇 설정이 저장되었습니다.');
     } catch (error) {
         alert('설정 저장 중 오류가 발생했습니다.');
@@ -703,13 +671,12 @@ async function updateSecurityBot() {
 // 의심 활동 해제
 async function clearSuspicious(index) {
     try {
-        const result = await window.storage.get('security');
-        const security = JSON.parse(result.value);
+        const security = await getData('security') || {suspiciousActivities: []};
         
         security.suspiciousActivities.splice(index, 1);
-        await window.storage.set('security', JSON.stringify(security));
+        await setData('security', security);
         
-        loadSecuritySettings();
+        await loadSecuritySettings();
     } catch (error) {
         alert('해제 중 오류가 발생했습니다.');
     }
@@ -718,5 +685,5 @@ async function clearSuspicious(index) {
 // 정지 확정
 async function confirmSuspend(username) {
     await suspendUser(username);
-    loadSecuritySettings();
-                             }
+    await loadSecuritySettings();
+}
