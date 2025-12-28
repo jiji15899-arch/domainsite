@@ -9,4 +9,4 @@ pages_build_output_dir = "dist"
 
 [[kv_namespaces]]
 binding = "DOMAINS_KV"
-id = "your_kv_namespace_id"
+id = "0d3a82e768e84e5ab1fc957b99fff2ac"
