@@ -1,11 +1,6 @@
-name = "domainsite"
-main = "worker.js"
+name = "free-domain-platform"
 compatibility_date = "2024-01-01"
 
 [[kv_namespaces]]
 binding = "DOMAIN_KV"
 id = "0d3a82e768e84e5ab1fc957b99fff2ac"
-
-[vars]
-CF_API_TOKEN = "i4R0fO-MHqjz0DP_4vaDIMYhpMnMgrMxilsx9rwt"
-CF_ZONE_ID = "e308082f47b0db0e14f46ca5fc53c4db"
