@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원가입 - 도메인 제공 서비스</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <h1><a href="index.html">도메인 제공 서비스</a></h1>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="auth-form">
+            <h2>회원가입</h2>
+            <form onsubmit="handleRegister(event)">
+                <input type="text" id="username" placeholder="사용자명" required>
+                <input type="email" id="email" placeholder="이메일" required>
+                <input type="password" id="password" placeholder="비밀번호" required>
+                <input type="password" id="confirmPassword" placeholder="비밀번호 확인" required>
+                <button type="submit">가입하기</button>
+            </form>
+            <p>이미 계정이 있으신가요? <a href="login.html">로그인</a></p>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
