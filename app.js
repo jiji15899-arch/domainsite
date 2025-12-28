@@ -1,4 +1,44 @@
-// 스토리지 초기화 함수
+// 스토리지 사용 가능 여부 확인
+function isStorageAvailable() {
+    return typeof window !== 'undefined' && window.storage && typeof window.storage.get === 'function';
+}
+
+// 로컬 스토리지 폴백
+const localDB = {
+    data: {},
+    get(key) {
+        if (this.data[key]) return Promise.resolve({value: this.data[key]});
+        const stored = localStorage.getItem('db_' + key);
+        if (stored) {
+            this.data[key] = stored;
+            return Promise.resolve({value: stored});
+        }
+        return Promise.reject(new Error('Key not found'));
+    },
+    set(key, value) {
+        this.data[key] = value;
+        localStorage.setItem('db_' + key, value);
+        return Promise.resolve({key, value});
+    }
+};
+
+// 스토리지 래퍼
+const storage = {
+    async get(key) {
+        if (isStorageAvailable()) {
+            return await window.storage.get(key);
+        }
+        return await localDB.get(key);
+    },
+    async set(key, value) {
+        if (isStorageAvailable()) {
+            return await window.storage.set(key, value);
+        }
+        return await localDB.set(key, value);
+    }
+};
+
+// 스토리지 초기화
 async function initStorage() {
     const defaults = {
         users: [{username: 'admindomain', password: 'admindomain120327', email: 'admin@domain.com', role: 'admin', status: 'active'}],
@@ -10,26 +50,26 @@ async function initStorage() {
 
     for (const [key, value] of Object.entries(defaults)) {
         try {
-            await window.storage.get(key);
+            await storage.get(key);
         } catch {
-            await window.storage.set(key, JSON.stringify(value));
+            await storage.set(key, JSON.stringify(value));
         }
     }
 }
 
-// 데이터 가져오기 헬퍼
+// 데이터 가져오기
 async function getData(key) {
     try {
-        const result = await window.storage.get(key);
+        const result = await storage.get(key);
         return JSON.parse(result.value);
     } catch {
         return null;
     }
 }
 
-// 데이터 저장 헬퍼
+// 데이터 저장
 async function setData(key, value) {
-    await window.storage.set(key, JSON.stringify(value));
+    await storage.set(key, JSON.stringify(value));
 }
 
 // 현재 사용자
@@ -686,4 +726,4 @@ async function clearSuspicious(index) {
 async function confirmSuspend(username) {
     await suspendUser(username);
     await loadSecuritySettings();
-}
+              }
