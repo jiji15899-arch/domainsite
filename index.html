@@ -3,286 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>무료 도메인 서비스</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
-        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 20px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-        h1 { color: #333; margin-bottom: 30px; text-align: center; }
-        .auth-section, .domain-section, .admin-section { display: none; }
-        .show { display: block; }
-        input, select, button { width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; }
-        button { background: #667eea; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        button:hover { background: #5568d3; }
-        .logout { background: #dc3545; margin-top: 20px; }
-        .domain-list { margin-top: 30px; }
-        .domain-item { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #667eea; }
-        .admin-panel { background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .tld-item { background: #e7f3ff; padding: 10px; margin: 10px 0; border-radius: 5px; }
-        .user-item { background: #ffe7e7; padding: 10px; margin: 10px 0; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
-        .btn-small { width: auto; padding: 5px 15px; font-size: 14px; margin: 0 5px; }
-        .error { color: #dc3545; margin: 10px 0; }
-        .success { color: #28a745; margin: 10px 0; }
-        .ns-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .tab-buttons { display: flex; gap: 10px; margin: 20px 0; }
-        .tab-btn { flex: 1; background: #6c757d; }
-        .tab-btn.active { background: #667eea; }
-    </style>
+    <title>무료 도메인 발급 플랫폼</title>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>🌐 무료 도메인 서비스</h1>
-        
-        <div class="auth-section show" id="authSection">
-            <h2>로그인 / 회원가입</h2>
-            <input type="text" id="authUsername" placeholder="사용자명">
-            <input type="password" id="authPassword" placeholder="비밀번호">
-            <button onclick="login()">로그인</button>
-            <button onclick="register()" style="background: #28a745;">회원가입</button>
-            <div id="authMessage"></div>
+        <header>
+            <h1>🌐 무료 도메인 발급</h1>
+            <div class="auth-buttons">
+                <button onclick="showLogin()">로그인</button>
+                <button onclick="showRegister()">회원가입</button>
+            </div>
+        </header>
+
+        <div id="auth-section">
+            <div id="login-form" class="auth-form" style="display:none;">
+                <h2>로그인</h2>
+                <input type="text" id="login-username" placeholder="사용자명">
+                <input type="password" id="login-password" placeholder="비밀번호">
+                <button onclick="login()">로그인</button>
+                <button onclick="hideAuth()">취소</button>
+            </div>
+
+            <div id="register-form" class="auth-form" style="display:none;">
+                <h2>회원가입</h2>
+                <input type="text" id="reg-username" placeholder="사용자명">
+                <input type="email" id="reg-email" placeholder="이메일">
+                <input type="password" id="reg-password" placeholder="비밀번호">
+                <button onclick="register()">가입하기</button>
+                <button onclick="hideAuth()">취소</button>
+            </div>
         </div>
 
-        <div class="domain-section" id="domainSection">
-            <h2>도메인 등록</h2>
-            <input type="text" id="domainName" placeholder="원하는 도메인명 (예: mysite)">
-            <select id="tldSelect"></select>
-            <div class="ns-inputs">
-                <input type="text" id="ns1" placeholder="네임서버 1 (필수)">
-                <input type="text" id="ns2" placeholder="네임서버 2 (선택)">
-                <input type="text" id="ns3" placeholder="네임서버 3 (선택)">
-                <input type="text" id="ns4" placeholder="네임서버 4 (선택)">
+        <div id="main-section" style="display:none;">
+            <div class="domain-form">
+                <h2>도메인 신청</h2>
+                <div class="form-group">
+                    <input type="text" id="domain-name" placeholder="원하는 도메인 이름">
+                    <select id="domain-ext"></select>
+                </div>
+                <div class="nameserver-section">
+                    <h3>네임서버 설정 (최대 4개)</h3>
+                    <input type="text" id="ns1" placeholder="네임서버 1 (예: ns1.example.com)">
+                    <input type="text" id="ns2" placeholder="네임서버 2">
+                    <input type="text" id="ns3" placeholder="네임서버 3 (선택)">
+                    <input type="text" id="ns4" placeholder="네임서버 4 (선택)">
+                </div>
+                <button onclick="requestDomain()">도메인 신청</button>
             </div>
-            <button onclick="registerDomain()">도메인 등록</button>
-            <div id="domainMessage"></div>
-            
-            <div class="domain-list">
-                <h3>내 도메인 목록</h3>
-                <div id="myDomains"></div>
+
+            <div class="my-domains">
+                <h2>내 도메인</h2>
+                <div id="domain-list"></div>
             </div>
-            
-            <button class="logout" onclick="logout()">로그아웃</button>
+
+            <button onclick="logout()" class="logout-btn">로그아웃</button>
         </div>
 
-        <div class="admin-section" id="adminSection">
-            <div class="tab-buttons">
-                <button class="tab-btn active" onclick="showTab('tld')">TLD 관리</button>
-                <button class="tab-btn" onclick="showTab('users')">사용자 관리</button>
-                <button class="tab-btn" onclick="showTab('payments')">결제 승인</button>
-                <button class="tab-btn" onclick="showTab('security')">보안 설정</button>
-            </div>
-
-            <div id="tldTab" class="admin-panel">
-                <h3>TLD 추가</h3>
-                <input type="text" id="newTld" placeholder="새 TLD (예: .mysite.com)">
-                <input type="number" id="tldPrice" placeholder="가격 (0=무료)">
-                <input type="text" id="paymentLink" placeholder="결제 링크 (선택)">
-                <button onclick="addTld()">TLD 추가</button>
-                <div id="tldList"></div>
-            </div>
-
-            <div id="usersTab" class="admin-panel" style="display:none;">
-                <h3>사용자 관리</h3>
-                <div id="usersList"></div>
-            </div>
-
-            <div id="paymentsTab" class="admin-panel" style="display:none;">
-                <h3>결제 승인 대기</h3>
-                <div id="paymentsList"></div>
-            </div>
-
-            <div id="securityTab" class="admin-panel" style="display:none;">
-                <h3>보안봇 설정</h3>
-                <label>활동 시작 시간 (KST)</label>
-                <input type="time" id="botStartTime">
-                <label>활동 종료 시간 (KST)</label>
-                <input type="time" id="botEndTime">
-                <button onclick="updateSecurityBot()">설정 저장</button>
-                <div id="securityLogs"></div>
-            </div>
-
-            <button class="logout" onclick="logout()">로그아웃</button>
-        </div>
+        <div id="message" class="message"></div>
     </div>
 
-    <script>
-        const API_URL = 'https://your-worker.your-subdomain.workers.dev';
-        let currentUser = null;
-
-        async function login() {
-            const username = document.getElementById('authUsername').value;
-            const password = document.getElementById('authPassword').value;
-            const response = await fetch(`${API_URL}/auth/login`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username, password})
-            });
-            const data = await response.json();
-            if(data.success) {
-                currentUser = data.user;
-                showMessage('authMessage', '로그인 성공!', 'success');
-                setTimeout(() => {
-                    document.getElementById('authSection').classList.remove('show');
-                    if(data.user.isAdmin) {
-                        document.getElementById('adminSection').classList.add('show');
-                        loadAdminData();
-                    } else {
-                        document.getElementById('domainSection').classList.add('show');
-                        loadUserDomains();
-                    }
-                    loadTlds();
-                }, 500);
-            } else {
-                showMessage('authMessage', data.message, 'error');
-            }
-        }
-
-        async function register() {
-            const username = document.getElementById('authUsername').value;
-            const password = document.getElementById('authPassword').value;
-            const response = await fetch(`${API_URL}/auth/register`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username, password})
-            });
-            const data = await response.json();
-            showMessage('authMessage', data.message, data.success ? 'success' : 'error');
-        }
-
-        async function registerDomain() {
-            const domain = document.getElementById('domainName').value;
-            const tld = document.getElementById('tldSelect').value;
-            const ns = [1,2,3,4].map(i => document.getElementById(`ns${i}`).value).filter(v => v);
-            if(!domain || !tld || ns.length === 0) {
-                return showMessage('domainMessage', '도메인명과 네임서버를 입력하세요', 'error');
-            }
-            const response = await fetch(`${API_URL}/domain/register`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({username: currentUser.username, domain, tld, nameservers: ns})
-            });
-            const data = await response.json();
-            showMessage('domainMessage', data.message, data.success ? 'success' : 'error');
-            if(data.success) loadUserDomains();
-        }
-
-        async function loadTlds() {
-            const response = await fetch(`${API_URL}/tlds`);
-            const data = await response.json();
-            const select = document.getElementById('tldSelect');
-            select.innerHTML = data.tlds.map(t => `<option value="${t.name}">${t.name} ${t.price > 0 ? '- ₩' + t.price : '- 무료'}</option>`).join('');
-        }
-
-        async function loadUserDomains() {
-            const response = await fetch(`${API_URL}/domains/${currentUser.username}`);
-            const data = await response.json();
-            document.getElementById('myDomains').innerHTML = data.domains.map(d => 
-                `<div class="domain-item">
-                    <strong>${d.domain}${d.tld}</strong><br>
-                    네임서버: ${d.nameservers.join(', ')}<br>
-                    등록일: ${new Date(d.createdAt).toLocaleDateString()}
-                </div>`
-            ).join('') || '<p>등록된 도메인이 없습니다.</p>';
-        }
-
-        async function addTld() {
-            const name = document.getElementById('newTld').value;
-            const price = parseInt(document.getElementById('tldPrice').value) || 0;
-            const paymentLink = document.getElementById('paymentLink').value;
-            const response = await fetch(`${API_URL}/admin/tld`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({name, price, paymentLink, admin: currentUser.username})
-            });
-            const data = await response.json();
-            alert(data.message);
-            if(data.success) loadAdminData();
-        }
-
-        async function loadAdminData() {
-            const tlds = await fetch(`${API_URL}/tlds`).then(r => r.json());
-            document.getElementById('tldList').innerHTML = tlds.tlds.map(t => 
-                `<div class="tld-item">${t.name} - ${t.price > 0 ? '₩' + t.price : '무료'} 
-                <button class="btn-small" onclick="deleteTld('${t.name}')">삭제</button></div>`
-            ).join('');
-
-            const users = await fetch(`${API_URL}/admin/users?admin=${currentUser.username}`).then(r => r.json());
-            document.getElementById('usersList').innerHTML = users.users.map(u => 
-                `<div class="user-item">${u.username} ${u.status === 'suspended' ? '(정지됨)' : ''}
-                <div>
-                    <button class="btn-small" onclick="toggleSuspend('${u.username}')">${u.status === 'suspended' ? '해제' : '정지'}</button>
-                    <button class="btn-small" onclick="blacklist('${u.username}')" style="background:#dc3545;">블랙리스트</button>
-                </div></div>`
-            ).join('');
-
-            const payments = await fetch(`${API_URL}/admin/payments?admin=${currentUser.username}`).then(r => r.json());
-            document.getElementById('paymentsList').innerHTML = payments.payments.map(p => 
-                `<div class="user-item">${p.username} - ${p.domain}${p.tld}
-                <div>
-                    <button class="btn-small" onclick="approvePayment('${p.id}')" style="background:#28a745;">승인</button>
-                    <button class="btn-small" onclick="rejectPayment('${p.id}')" style="background:#dc3545;">거부</button>
-                </div></div>`
-            ).join('') || '<p>대기 중인 결제가 없습니다.</p>';
-        }
-
-        async function deleteTld(name) {
-            if(!confirm(`${name} TLD를 삭제하시겠습니까?`)) return;
-            await fetch(`${API_URL}/admin/tld/${encodeURIComponent(name)}?admin=${currentUser.username}`, {method: 'DELETE'});
-            loadAdminData();
-        }
-
-        async function toggleSuspend(username) {
-            await fetch(`${API_URL}/admin/user/${username}/suspend?admin=${currentUser.username}`, {method: 'POST'});
-            loadAdminData();
-        }
-
-        async function blacklist(username) {
-            if(!confirm(`${username}을 블랙리스트에 등재하시겠습니까?`)) return;
-            await fetch(`${API_URL}/admin/user/${username}/blacklist?admin=${currentUser.username}`, {method: 'POST'});
-            loadAdminData();
-        }
-
-        async function approvePayment(id) {
-            await fetch(`${API_URL}/admin/payment/${id}/approve?admin=${currentUser.username}`, {method: 'POST'});
-            loadAdminData();
-        }
-
-        async function rejectPayment(id) {
-            await fetch(`${API_URL}/admin/payment/${id}/reject?admin=${currentUser.username}`, {method: 'POST'});
-            loadAdminData();
-        }
-
-        async function updateSecurityBot() {
-            const start = document.getElementById('botStartTime').value;
-            const end = document.getElementById('botEndTime').value;
-            await fetch(`${API_URL}/admin/security`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({admin: currentUser.username, startTime: start, endTime: end})
-            });
-            alert('보안봇 설정이 저장되었습니다.');
-        }
-
-        function showTab(tab) {
-            ['tld', 'users', 'payments', 'security'].forEach(t => {
-                document.getElementById(`${t}Tab`).style.display = t === tab ? 'block' : 'none';
-            });
-            document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-                btn.classList.toggle('active', ['tld', 'users', 'payments', 'security'][i] === tab);
-            });
-        }
-
-        function logout() {
-            currentUser = null;
-            document.getElementById('adminSection').classList.remove('show');
-            document.getElementById('domainSection').classList.remove('show');
-            document.getElementById('authSection').classList.add('show');
-        }
-
-        function showMessage(id, msg, type) {
-            const el = document.getElementById(id);
-            el.textContent = msg;
-            el.className = type;
-        }
-    </script>
+    <script src="/app.js"></script>
 </body>
 </html>
