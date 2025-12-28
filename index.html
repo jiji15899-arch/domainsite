@@ -3,42 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>무료 도메인 발급 서비스</title>
+    <title>무료 도메인 제공 서비스</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <nav>
-        <h1>🌐 무료 도메인 발급</h1>
-        <div id="userInfo"></div>
+        <div class="container">
+            <h1>도메인 제공 서비스</h1>
+            <div id="navMenu"></div>
+        </div>
     </nav>
 
-    <main id="mainContent">
-        <section class="domain-register">
-            <h2>도메인 등록</h2>
-            <div class="form-group">
-                <input type="text" id="domainName" placeholder="원하는 도메인 이름 입력">
-                <select id="domainExt"></select>
-            </div>
-            <div id="paymentInfo" style="display:none;" class="alert">
-                <p>결제 필요: <span id="paymentAmount"></span>원</p>
-                <button id="paymentBtn">결제하기</button>
-            </div>
-            <div class="ns-inputs">
-                <h3>네임서버 설정 (최대 4개)</h3>
-                <input type="text" id="ns1" placeholder="ns1.example.com" required>
-                <input type="text" id="ns2" placeholder="ns2.example.com">
-                <input type="text" id="ns3" placeholder="ns3.example.com">
-                <input type="text" id="ns4" placeholder="ns4.example.com">
-            </div>
-            <button id="registerBtn" class="btn-primary">도메인 등록</button>
+    <main class="container">
+        <section class="hero">
+            <h2>무료 도메인을 지금 등록하세요</h2>
+            <p>간단한 절차로 원하는 도메인을 무제한 기간 사용할 수 있습니다.</p>
         </section>
 
-        <section class="my-domains">
-            <h2>내 도메인 목록</h2>
-            <div id="domainList"></div>
+        <section class="domain-register">
+            <h3>도메인 등록</h3>
+            <div class="search-box">
+                <input type="text" id="domainName" placeholder="원하는 도메인 이름 입력">
+                <select id="domainExt"></select>
+                <button onclick="checkDomain()">확인</button>
+            </div>
+            <div id="searchResult"></div>
+
+            <div id="registerForm" style="display:none;">
+                <h4>네임서버 설정</h4>
+                <input type="text" id="ns1" placeholder="네임서버 1 (필수)" required>
+                <input type="text" id="ns2" placeholder="네임서버 2 (필수)" required>
+                <input type="text" id="ns3" placeholder="네임서버 3 (선택)">
+                <input type="text" id="ns4" placeholder="네임서버 4 (선택)">
+                <div id="paymentInfo"></div>
+                <button onclick="registerDomain()">도메인 등록</button>
+            </div>
+        </section>
+
+        <section class="features">
+            <h3>서비스 특징</h3>
+            <div class="feature-grid">
+                <div class="feature">
+                    <h4>무제한 사용 기간</h4>
+                    <p>한번 등록하면 영구적으로 사용 가능</p>
+                </div>
+                <div class="feature">
+                    <h4>간편한 네임서버 설정</h4>
+                    <p>최대 4개의 네임서버 설정 가능</p>
+                </div>
+                <div class="feature">
+                    <h4>다양한 확장자</h4>
+                    <p>여러 도메인 확장자 지원</p>
+                </div>
+            </div>
         </section>
     </main>
 
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 도메인 제공 서비스. All rights reserved.</p>
+        </div>
+    </footer>
+
     <script src="app.js"></script>
+    <script>
+        initPage();
+        loadExtensions();
+    </script>
 </body>
 </html>
