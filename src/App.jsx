@@ -1,455 +1,540 @@
-import React, { useState } from 'react';
-import { Globe, Server, CheckCircle, AlertCircle, Loader, Settings } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Globe, Server, CheckCircle, AlertCircle, Loader, Settings, Shield, Users, DollarSign, Ban, Clock, Eye, LogOut, LogIn } from 'lucide-react';
 
-// API 엔드포인트 (배포 후 실제 URL로 변경)
+const ADMIN_CREDENTIALS = { username: 'admindomain', password: 'admindomain120327' };
 const API_BASE = '/api';
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '', isRegister: false });
+  const [view, setView] = useState('domain'); // domain, admin
+  
+  // 도메인 발급
   const [step, setStep] = useState(1);
   const [domainName, setDomainName] = useState('');
   const [nameservers, setNameservers] = useState(['', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
-  const [extension, setExtension] = useState('.example.com');
-  const [customExtensions, setCustomExtensions] = useState([
-    '.example.com',
-    '.free.com',
-    '.mysite.net',
-    '.demo.org'
-  ]);
-  const [showSettings, setShowSettings] = useState(false);
-  const [newExtension, setNewExtension] = useState('');
+  const [extension, setExtension] = useState('');
+  
+  // 관리자
+  const [extensions, setExtensions] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [payments, setPendingPayments] = useState([]);
+  const [securityLogs, setSecurityLogs] = useState([]);
+  const [botSchedule, setBotSchedule] = useState({ start: '00:00', end: '23:59', active: true });
+  const [newExt, setNewExt] = useState({ name: '', price: 0, paymentRequired: false, paymentLink: '' });
 
-  // 도메인 유효성 검사
-  const validateDomain = (name) => {
-    const regex = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/i;
-    return regex.test(name) && name.length >= 3 && name.length <= 63;
-  };
+  useEffect(() => {
+    loadData();
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) setUser(JSON.parse(savedUser));
+  }, []);
 
-  // 네임서버 유효성 검사
-  const validateNameserver = (ns) => {
-    if (!ns) return true;
-    const regex = /^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}$/i;
-    return regex.test(ns);
-  };
-
-  // 확장자 추가
-  const addExtension = () => {
-    if (newExtension && newExtension.startsWith('.')) {
-      setCustomExtensions([...customExtensions, newExtension]);
-      setNewExtension('');
+  const loadData = async () => {
+    try {
+      const [exts, usrs, pays, logs] = await Promise.all([
+        fetch(`${API_BASE}/extensions`).then(r => r.json()),
+        fetch(`${API_BASE}/users`).then(r => r.json()),
+        fetch(`${API_BASE}/payments`).then(r => r.json()),
+        fetch(`${API_BASE}/security-logs`).then(r => r.json())
+      ]);
+      setExtensions(exts.data || [{ name: '.example.com', price: 0, paymentRequired: false }]);
+      setUsers(usrs.data || []);
+      setPendingPayments(pays.data || []);
+      setSecurityLogs(logs.data || []);
+    } catch (e) {
+      setExtensions([{ name: '.example.com', price: 0, paymentRequired: false }]);
     }
   };
 
-  // 확장자 삭제
-  const removeExtension = (ext) => {
-    setCustomExtensions(customExtensions.filter(e => e !== ext));
-  };
-
-  // 도메인 가용성 확인
-  const checkDomain = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/check`, {
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    const { username, password, isRegister } = loginForm;
+    
+    if (isRegister) {
+      const newUser = { username, password, role: 'user', status: 'active', createdAt: Date.now() };
+      await fetch(`${API_BASE}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ domainName, extension }),
+        body: JSON.stringify(newUser)
       });
-      const data = await response.json();
-      return data.available;
-    } catch (err) {
-      console.error('도메인 확인 오류:', err);
-      return true; // 오프라인 모드에서는 사용 가능으로 간주
+      setUser(newUser);
+      localStorage.setItem('user', JSON.stringify(newUser));
+      setShowLogin(false);
+    } else {
+      if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+        const adminUser = { username, role: 'admin', status: 'active' };
+        setUser(adminUser);
+        localStorage.setItem('user', JSON.stringify(adminUser));
+        setShowLogin(false);
+      } else {
+        const res = await fetch(`${API_BASE}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          setUser(data.user);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          setShowLogin(false);
+        } else {
+          setError('로그인 실패');
+        }
+      }
     }
   };
 
-  // 도메인 신청 처리
-  const handleSubmit = async () => {
-    setError('');
-    setResult(null);
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('user');
+    setView('domain');
+  };
 
-    if (!validateDomain(domainName)) {
-      setError('유효하지 않은 도메인 이름입니다. 3-63자의 영문, 숫자, 하이픈만 사용 가능합니다.');
+  const addExtension = async () => {
+    if (!newExt.name.startsWith('.')) return;
+    const ext = { ...newExt, id: Date.now(), createdBy: user.username };
+    await fetch(`${API_BASE}/extensions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ext)
+    });
+    setExtensions([...extensions, ext]);
+    setNewExt({ name: '', price: 0, paymentRequired: false, paymentLink: '' });
+  };
+
+  const removeExtension = async (id) => {
+    await fetch(`${API_BASE}/extensions/${id}`, { method: 'DELETE' });
+    setExtensions(extensions.filter(e => e.id !== id));
+  };
+
+  const handleDomainSubmit = async () => {
+    if (!user) {
+      setError('로그인이 필요합니다');
+      setShowLogin(true);
       return;
     }
 
-    const validNameservers = nameservers.filter(ns => ns.trim() !== '');
-    if (validNameservers.length === 0) {
-      setError('최소 1개의 네임서버를 입력해주세요.');
+    if (user.status === 'suspended' || user.status === 'blacklisted') {
+      setError('계정이 정지되었습니다');
       return;
     }
 
-    for (let ns of validNameservers) {
-      if (!validateNameserver(ns)) {
-        setError(`유효하지 않은 네임서버: ${ns}`);
-        return;
+    const selectedExt = extensions.find(e => e.name === extension);
+    if (selectedExt?.paymentRequired && user.role !== 'admin') {
+      if (selectedExt.paymentLink) {
+        window.open(selectedExt.paymentLink, '_blank');
       }
-    }
-
-    setLoading(true);
-
-    try {
-      // 도메인 가용성 확인
-      const available = await checkDomain();
-      if (!available) {
-        setError('이미 등록된 도메인입니다.');
-        setLoading(false);
-        return;
-      }
-
-      // 도메인 등록 API 호출
-      const response = await fetch(`${API_BASE}/register`, {
+      await fetch(`${API_BASE}/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          domainName,
-          extension,
-          nameservers: validNameservers,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setResult({
+          user: user.username,
           domain: `${domainName}${extension}`,
-          nameservers: validNameservers,
-          status: 'active',
-          createdAt: new Date().toISOString(),
-          expiresAt: '무제한'
-        });
-        setStep(3);
-      } else {
-        setError(data.error || '도메인 등록에 실패했습니다.');
-      }
-    } catch (err) {
-      console.error('등록 오류:', err);
-      // 오프라인 모드 - 로컬 시뮬레이션
-      setResult({
-        domain: `${domainName}${extension}`,
-        nameservers: validNameservers,
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        expiresAt: '무제한'
+          amount: selectedExt.price,
+          status: 'pending',
+          createdAt: Date.now()
+        })
       });
-      setStep(3);
-    } finally {
-      setLoading(false);
+      setError('결제 후 관리자 승인이 필요합니다');
+      return;
     }
+
+    setLoading(true);
+    try {
+      const validNS = nameservers.filter(ns => ns.trim());
+      const res = await fetch(`${API_BASE}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domainName, extension, nameservers: validNS, user: user.username })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ domain: `${domainName}${extension}`, nameservers: validNS, status: 'active', createdAt: new Date().toISOString(), expiresAt: '무제한' });
+        setStep(3);
+      }
+    } catch (e) {
+      setError('도메인 발급 실패');
+    }
+    setLoading(false);
   };
+
+  const approvePayment = async (paymentId, approve) => {
+    await fetch(`${API_BASE}/payments/${paymentId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: approve ? 'approved' : 'rejected' })
+    });
+    loadData();
+  };
+
+  const updateUserStatus = async (username, status) => {
+    await fetch(`${API_BASE}/users/${username}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    loadData();
+  };
+
+  const updateBotSchedule = async () => {
+    await fetch(`${API_BASE}/bot-schedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(botSchedule)
+    });
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-6">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
+          <div className="text-center mb-6">
+            <Globe className="w-16 h-16 text-indigo-600 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-gray-900">무료 도메인 제공</h1>
+          </div>
+          
+          <form onSubmit={handleLogin} className="space-y-4">
+            <input
+              type="text"
+              placeholder="사용자명"
+              value={loginForm.username}
+              onChange={(e) => setLoginForm({...loginForm, username: e.target.value})}
+              className="w-full p-3 border rounded-lg"
+              required
+            />
+            <input
+              type="password"
+              placeholder="비밀번호"
+              value={loginForm.password}
+              onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+              className="w-full p-3 border rounded-lg"
+              required
+            />
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+            <button type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+              {loginForm.isRegister ? '회원가입' : '로그인'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLoginForm({...loginForm, isRegister: !loginForm.isRegister})}
+              className="w-full text-indigo-600 text-sm hover:underline"
+            >
+              {loginForm.isRegister ? '로그인으로 전환' : '회원가입으로 전환'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* 헤더 */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <Globe className="w-12 h-12 text-indigo-600" />
+        <div className="bg-white rounded-lg shadow-lg p-4 mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Globe className="w-8 h-8 text-indigo-600" />
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">무료 도메인 제공</h1>
+              <p className="text-sm text-gray-600">{user.username} ({user.role === 'admin' ? '관리자' : '사용자'})</p>
+            </div>
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            무료 도메인 제공 플랫폼
-          </h1>
-          <p className="text-gray-600">
-            무료로 도메인을 발급받고 네임서버를 설정하세요
-          </p>
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="mt-4 text-indigo-600 hover:text-indigo-700 flex items-center mx-auto"
-          >
-            <Settings className="w-5 h-5 mr-2" />
-            확장자 관리
-          </button>
+          <div className="flex gap-2">
+            {user.role === 'admin' && (
+              <button
+                onClick={() => setView(view === 'domain' ? 'admin' : 'domain')}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+              >
+                {view === 'admin' ? <Globe className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                {view === 'admin' ? '도메인 발급' : '관리자 패널'}
+              </button>
+            )}
+            <button onClick={handleLogout} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center gap-2">
+              <LogOut className="w-4 h-4" />
+              로그아웃
+            </button>
+          </div>
         </div>
 
-        {/* 확장자 관리 패널 */}
-        {showSettings && (
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">확장자 관리</h3>
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newExtension}
-                  onChange={(e) => setNewExtension(e.target.value)}
-                  placeholder=".mydomain.com"
-                  className="flex-1 p-2 border border-gray-300 rounded-lg"
-                />
-                <button
-                  onClick={addExtension}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                >
-                  추가
-                </button>
+        {/* 관리자 패널 */}
+        {view === 'admin' && user.role === 'admin' && (
+          <div className="space-y-6">
+            {/* 확장자 관리 */}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                확장자 관리
+              </h2>
+              <div className="space-y-4">
+                <div className="grid grid-cols-5 gap-2">
+                  <input
+                    type="text"
+                    placeholder=".example.com"
+                    value={newExt.name}
+                    onChange={(e) => setNewExt({...newExt, name: e.target.value})}
+                    className="p-2 border rounded"
+                  />
+                  <input
+                    type="number"
+                    placeholder="가격 (원)"
+                    value={newExt.price}
+                    onChange={(e) => setNewExt({...newExt, price: Number(e.target.value)})}
+                    className="p-2 border rounded"
+                  />
+                  <input
+                    type="text"
+                    placeholder="결제 링크"
+                    value={newExt.paymentLink}
+                    onChange={(e) => setNewExt({...newExt, paymentLink: e.target.value})}
+                    className="p-2 border rounded"
+                  />
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={newExt.paymentRequired}
+                      onChange={(e) => setNewExt({...newExt, paymentRequired: e.target.checked})}
+                    />
+                    <span className="text-sm">결제 필요</span>
+                  </label>
+                  <button onClick={addExtension} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                    추가
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {extensions.map((ext) => (
+                    <div key={ext.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                      <div>
+                        <span className="font-mono font-bold">{ext.name}</span>
+                        {ext.paymentRequired && <span className="ml-2 text-sm text-green-600">₩{ext.price}</span>}
+                      </div>
+                      <button onClick={() => removeExtension(ext.id)} className="text-red-600 text-sm hover:underline">
+                        삭제
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
+            </div>
+
+            {/* 결제 승인 */}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <DollarSign className="w-5 h-5" />
+                결제 승인 ({payments.filter(p => p.status === 'pending').length})
+              </h2>
               <div className="space-y-2">
-                {customExtensions.map((ext, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span className="font-mono text-gray-700">{ext}</span>
-                    <button
-                      onClick={() => removeExtension(ext)}
-                      className="text-red-600 hover:text-red-700 text-sm"
-                    >
-                      삭제
-                    </button>
+                {payments.filter(p => p.status === 'pending').map((pay) => (
+                  <div key={pay.id} className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded">
+                    <div>
+                      <p className="font-semibold">{pay.domain}</p>
+                      <p className="text-sm text-gray-600">{pay.user} - ₩{pay.amount}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => approvePayment(pay.id, true)} className="px-3 py-1 bg-green-600 text-white rounded text-sm">
+                        승인
+                      </button>
+                      <button onClick={() => approvePayment(pay.id, false)} className="px-3 py-1 bg-red-600 text-white rounded text-sm">
+                        거부
+                      </button>
+                    </div>
                   </div>
                 ))}
+                {payments.filter(p => p.status === 'pending').length === 0 && (
+                  <p className="text-gray-500 text-center py-4">대기 중인 결제가 없습니다</p>
+                )}
+              </div>
+            </div>
+
+            {/* 사용자 관리 */}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                사용자 관리 ({users.length})
+              </h2>
+              <div className="space-y-2">
+                {users.map((u) => (
+                  <div key={u.username} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                    <div>
+                      <p className="font-semibold">{u.username}</p>
+                      <p className="text-sm text-gray-600">상태: {u.status === 'active' ? '활성' : u.status === 'suspended' ? '정지' : '블랙리스트'}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      {u.status === 'active' && (
+                        <button onClick={() => updateUserStatus(u.username, 'suspended')} className="px-3 py-1 bg-yellow-600 text-white rounded text-sm">
+                          정지
+                        </button>
+                      )}
+                      {u.status === 'suspended' && (
+                        <button onClick={() => updateUserStatus(u.username, 'active')} className="px-3 py-1 bg-green-600 text-white rounded text-sm">
+                          해제
+                        </button>
+                      )}
+                      <button onClick={() => updateUserStatus(u.username, 'blacklisted')} className="px-3 py-1 bg-red-600 text-white rounded text-sm">
+                        블랙리스트
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 보안봇 설정 */}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                보안봇 스케줄 (한국 표준시)
+              </h2>
+              <div className="space-y-4">
+                <div className="flex gap-4 items-center">
+                  <input
+                    type="time"
+                    value={botSchedule.start}
+                    onChange={(e) => setBotSchedule({...botSchedule, start: e.target.value})}
+                    className="p-2 border rounded"
+                  />
+                  <span>~</span>
+                  <input
+                    type="time"
+                    value={botSchedule.end}
+                    onChange={(e) => setBotSchedule({...botSchedule, end: e.target.value})}
+                    className="p-2 border rounded"
+                  />
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={botSchedule.active}
+                      onChange={(e) => setBotSchedule({...botSchedule, active: e.target.checked})}
+                    />
+                    <span>활성화</span>
+                  </label>
+                  <button onClick={updateBotSchedule} className="px-4 py-2 bg-indigo-600 text-white rounded">
+                    저장
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 보안 로그 */}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <Eye className="w-5 h-5" />
+                보안 로그 ({securityLogs.length})
+              </h2>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {securityLogs.map((log) => (
+                  <div key={log.id} className="p-3 bg-red-50 border border-red-200 rounded">
+                    <p className="font-semibold text-red-800">{log.type}</p>
+                    <p className="text-sm text-gray-600">{log.user} - {log.description}</p>
+                    <p className="text-xs text-gray-500">{new Date(log.timestamp).toLocaleString('ko-KR')}</p>
+                  </div>
+                ))}
+                {securityLogs.length === 0 && (
+                  <p className="text-gray-500 text-center py-4">보안 이벤트가 없습니다</p>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* 진행 단계 */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <div className="flex items-center justify-between mb-8">
-            <div className={`flex items-center ${step >= 1 ? 'text-indigo-600' : 'text-gray-400'}`}>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${step >= 1 ? 'bg-indigo-600 text-white' : 'bg-gray-200'}`}>
-                1
-              </div>
-              <span className="ml-2 font-semibold">도메인 입력</span>
-            </div>
-            <div className="flex-1 h-1 mx-4 bg-gray-200">
-              <div className={`h-full ${step >= 2 ? 'bg-indigo-600' : ''} transition-all`} style={{width: step >= 2 ? '100%' : '0%'}}></div>
-            </div>
-            <div className={`flex items-center ${step >= 2 ? 'text-indigo-600' : 'text-gray-400'}`}>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${step >= 2 ? 'bg-indigo-600 text-white' : 'bg-gray-200'}`}>
-                2
-              </div>
-              <span className="ml-2 font-semibold">네임서버 설정</span>
-            </div>
-            <div className="flex-1 h-1 mx-4 bg-gray-200">
-              <div className={`h-full ${step >= 3 ? 'bg-indigo-600' : ''} transition-all`} style={{width: step >= 3 ? '100%' : '0%'}}></div>
-            </div>
-            <div className={`flex items-center ${step >= 3 ? 'text-indigo-600' : 'text-gray-400'}`}>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${step >= 3 ? 'bg-indigo-600 text-white' : 'bg-gray-200'}`}>
-                3
-              </div>
-              <span className="ml-2 font-semibold">완료</span>
-            </div>
-          </div>
-
-          {/* Step 1: 도메인 입력 */}
-          {step === 1 && (
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  확장자 선택
-                </label>
-                <select
-                  value={extension}
-                  onChange={(e) => setExtension(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  {customExtensions.map((ext, index) => (
-                    <option key={index} value={ext}>{ext}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  원하시는 도메인 이름을 입력하세요
-                </label>
-                <div className="flex items-center">
-                  <input
-                    type="text"
-                    value={domainName}
-                    onChange={(e) => setDomainName(e.target.value.toLowerCase())}
-                    placeholder="mywebsite"
-                    className="flex-1 p-3 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
-                  <div className="px-4 py-3 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-gray-700 font-medium">
-                    {extension}
-                  </div>
+        {/* 도메인 발급 */}
+        {view === 'domain' && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            {step === 1 && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold">도메인 발급</h2>
+                <div>
+                  <label className="block text-sm font-medium mb-2">확장자 선택</label>
+                  <select value={extension} onChange={(e) => setExtension(e.target.value)} className="w-full p-3 border rounded-lg">
+                    <option value="">선택하세요</option>
+                    {extensions.map((ext) => (
+                      <option key={ext.id} value={ext.name}>
+                        {ext.name} {ext.paymentRequired && `(₩${ext.price})`}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <p className="mt-2 text-sm text-gray-500">
-                  3-63자의 영문, 숫자, 하이픈(-) 사용 가능
-                </p>
-              </div>
-
-              {domainName && (
-                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                  <p className="text-indigo-800 font-semibold">
-                    발급될 도메인: {domainName}{extension}
-                  </p>
-                </div>
-              )}
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-                    <p className="text-red-800">{error}</p>
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={() => {
-                  if (validateDomain(domainName)) {
-                    setStep(2);
-                    setError('');
-                  } else {
-                    setError('유효하지 않은 도메인 이름입니다.');
-                  }
-                }}
-                disabled={!domainName}
-                className="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              >
-                다음 단계
-              </button>
-            </div>
-          )}
-
-          {/* Step 2: 네임서버 설정 */}
-          {step === 2 && (
-            <div className="space-y-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <div className="flex items-start">
-                  <Server className="w-5 h-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
-                  <div>
-                    <p className="text-blue-800 font-semibold mb-1">네임서버란?</p>
-                    <p className="text-blue-700 text-sm">
-                      네임서버는 도메인의 DNS 설정을 관리하는 서버입니다. 
-                      호스팅 제공업체에서 제공한 네임서버 주소를 입력하세요.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  네임서버 설정 (최소 1개, 최대 4개)
-                </label>
-                {nameservers.map((ns, index) => (
-                  <div key={index} className="mb-3">
+                <div>
+                  <label className="block text-sm font-medium mb-2">도메인 이름</label>
+                  <div className="flex">
                     <input
                       type="text"
-                      value={ns}
-                      onChange={(e) => {
-                        const newNS = [...nameservers];
-                        newNS[index] = e.target.value.toLowerCase();
-                        setNameservers(newNS);
-                      }}
-                      placeholder={`네임서버 ${index + 1} (예: ns1.example.com)`}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      value={domainName}
+                      onChange={(e) => setDomainName(e.target.value.toLowerCase())}
+                      placeholder="mywebsite"
+                      className="flex-1 p-3 border rounded-l-lg"
                     />
+                    <div className="px-4 py-3 bg-gray-100 border border-l-0 rounded-r-lg">{extension}</div>
                   </div>
+                </div>
+                {error && <p className="text-red-600">{error}</p>}
+                <button
+                  onClick={() => setStep(2)}
+                  disabled={!domainName || !extension}
+                  className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300"
+                >
+                  다음
+                </button>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold">네임서버 설정</h2>
+                {nameservers.map((ns, i) => (
+                  <input
+                    key={i}
+                    type="text"
+                    value={ns}
+                    onChange={(e) => {
+                      const newNS = [...nameservers];
+                      newNS[i] = e.target.value;
+                      setNameservers(newNS);
+                    }}
+                    placeholder={`네임서버 ${i + 1}`}
+                    className="w-full p-3 border rounded-lg"
+                  />
                 ))}
-                <p className="mt-2 text-sm text-gray-500">
-                  호스팅 업체에서 제공한 네임서버 주소를 입력하세요
-                </p>
-              </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
-                    <p className="text-red-800">{error}</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setStep(1)}
-                  className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-                >
-                  이전
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={loading || nameservers.filter(ns => ns.trim()).length === 0}
-                  className="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                >
-                  {loading ? (
-                    <>
-                      <Loader className="w-5 h-5 mr-2 animate-spin" />
-                      도메인 발급 중...
-                    </>
-                  ) : (
-                    '도메인 발급하기'
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: 완료 */}
-          {step === 3 && result && (
-            <div className="space-y-6">
-              <div className="text-center mb-6">
-                <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  도메인 발급 완료!
-                </h2>
-                <p className="text-gray-600">
-                  도메인이 성공적으로 발급되었습니다
-                </p>
-              </div>
-
-              <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg p-6">
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">발급된 도메인</p>
-                    <p className="text-2xl font-bold text-indigo-600 break-all">
-                      {result.domain}
-                    </p>
-                  </div>
-
-                  <div className="border-t border-indigo-200 pt-4">
-                    <p className="text-sm text-gray-600 mb-2">네임서버</p>
-                    {result.nameservers.map((ns, index) => (
-                      <p key={index} className="text-gray-800 font-mono bg-white px-3 py-2 rounded mb-1 break-all">
-                        {ns}
-                      </p>
-                    ))}
-                  </div>
-
-                  <div className="border-t border-indigo-200 pt-4 grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-600">상태</p>
-                      <p className="text-green-600 font-semibold">활성</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">사용 기간</p>
-                      <p className="text-gray-800 font-semibold">{result.expiresAt}</p>
-                    </div>
-                  </div>
+                {error && <p className="text-red-600">{error}</p>}
+                <div className="flex gap-3">
+                  <button onClick={() => setStep(1)} className="flex-1 py-3 bg-gray-200 rounded-lg">이전</button>
+                  <button
+                    onClick={handleDomainSubmit}
+                    disabled={loading}
+                    className="flex-1 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  >
+                    {loading ? '처리 중...' : '발급'}
+                  </button>
                 </div>
               </div>
+            )}
 
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-yellow-800 font-semibold mb-2">📌 안내사항</p>
-                <ul className="text-yellow-700 text-sm space-y-1 list-disc list-inside">
-                  <li>DNS 전파까지 최대 24-48시간이 소요될 수 있습니다</li>
-                  <li>네임서버 설정이 정상적으로 전파되면 도메인 사용이 가능합니다</li>
-                  <li>네임서버에서 A, CNAME, MX 등의 DNS 레코드를 설정하세요</li>
-                  <li>도메인은 무제한으로 사용 가능합니다</li>
-                </ul>
+            {step === 3 && result && (
+              <div className="space-y-6">
+                <div className="text-center">
+                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                  <h2 className="text-2xl font-bold mb-2">발급 완료!</h2>
+                  <p className="text-xl text-indigo-600 font-bold">{result.domain}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setStep(1);
+                    setDomainName('');
+                    setNameservers(['', '', '', '']);
+                    setResult(null);
+                  }}
+                  className="w-full py-3 bg-indigo-600 text-white rounded-lg"
+                >
+                  새 도메인 발급
+                </button>
               </div>
-
-              <button
-                onClick={() => {
-                  setStep(1);
-                  setDomainName('');
-                  setNameservers(['', '', '', '']);
-                  setResult(null);
-                  setError('');
-                }}
-                className="w-full py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-              >
-                새 도메인 발급하기
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* 푸터 */}
-        <div className="text-center text-gray-600 text-sm">
-          <p>무료 도메인 제공 플랫폼 © 2024</p>
-          <p className="mt-1 text-xs">서브도메인 기반 무료 도메인 제공 서비스</p>
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
-        }
+    }
