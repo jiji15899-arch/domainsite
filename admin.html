@@ -8,50 +8,65 @@
 </head>
 <body>
     <nav>
-        <h1>🔧 관리자 대시보드</h1>
-        <button onclick="logout()" class="btn-secondary">로그아웃</button>
+        <div class="container">
+            <h1>관리자 대시보드</h1>
+            <div id="navMenu"></div>
+        </div>
     </nav>
 
-    <main>
-        <div class="tabs">
-            <button class="tab active" onclick="showTab('extensions')">확장자 관리</button>
-            <button class="tab" onclick="showTab('payments')">결제 승인</button>
-            <button class="tab" onclick="showTab('users')">사용자 관리</button>
-            <button class="tab" onclick="showTab('security')">보안 설정</button>
+    <main class="container">
+        <div class="admin-tabs">
+            <button class="tab-btn active" onclick="showTab('extensions')">확장자 관리</button>
+            <button class="tab-btn" onclick="showTab('payments')">결제 승인</button>
+            <button class="tab-btn" onclick="showTab('users')">사용자 관리</button>
+            <button class="tab-btn" onclick="showTab('security')">보안 설정</button>
+            <button class="tab-btn" onclick="showTab('domains')">도메인 관리</button>
         </div>
 
-        <section id="extensions" class="tab-content active">
-            <h2>확장자 추가/관리</h2>
-            <div class="form-group">
-                <input type="text" id="newExt" placeholder=".com, .net 등">
+        <div id="extensions" class="tab-content active">
+            <h3>확장자 관리</h3>
+            <div class="add-extension">
+                <input type="text" id="newExt" placeholder="확장자 (예: .com)">
                 <input type="number" id="extPrice" placeholder="가격 (0=무료)">
                 <input type="text" id="paymentLink" placeholder="결제 링크 (선택)">
-                <button onclick="addExtension()" class="btn-primary">추가</button>
+                <button onclick="addExtension()">추가</button>
             </div>
-            <div id="extList"></div>
-        </section>
+            <div id="extensionList"></div>
+        </div>
 
-        <section id="payments" class="tab-content">
-            <h2>결제 승인 대기</h2>
-            <div id="paymentQueue"></div>
-        </section>
+        <div id="payments" class="tab-content">
+            <h3>결제 승인 대기</h3>
+            <div id="pendingPayments"></div>
+        </div>
 
-        <section id="users" class="tab-content">
-            <h2>사용자 관리</h2>
+        <div id="users" class="tab-content">
+            <h3>사용자 관리</h3>
             <div id="userList"></div>
-        </section>
+        </div>
 
-        <section id="security" class="tab-content">
-            <h2>보안봇 설정</h2>
-            <label>활동 시작 시간 (KST):</label>
-            <input type="time" id="securityStart">
-            <label>활동 종료 시간 (KST):</label>
-            <input type="time" id="securityEnd">
-            <button onclick="updateSecurityBot()" class="btn-primary">저장</button>
-            <div id="securityAlerts"></div>
-        </section>
+        <div id="security" class="tab-content">
+            <h3>보안봇 설정</h3>
+            <div class="security-settings">
+                <label>보안봇 활동 시작 시간 (KST):</label>
+                <input type="time" id="botStartTime">
+                <label>보안봇 활동 종료 시간 (KST):</label>
+                <input type="time" id="botEndTime">
+                <button onclick="updateSecurityBot()">설정 저장</button>
+            </div>
+            <h4>의심 활동 감지</h4>
+            <div id="suspiciousActivities"></div>
+        </div>
+
+        <div id="domains" class="tab-content">
+            <h3>전체 도메인 관리</h3>
+            <div id="allDomains"></div>
+        </div>
     </main>
 
     <script src="app.js"></script>
+    <script>
+        checkAdminAuth();
+        loadAdminData();
+    </script>
 </body>
 </html>
