@@ -3,66 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>무료 도메인 발급 플랫폼</title>
-    <link rel="stylesheet" href="/styles.css">
+    <title>무료 도메인 발급 서비스</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🌐 무료 도메인 발급</h1>
-            <div class="auth-buttons">
-                <button onclick="showLogin()">로그인</button>
-                <button onclick="showRegister()">회원가입</button>
+    <nav>
+        <h1>🌐 무료 도메인 발급</h1>
+        <div id="userInfo"></div>
+    </nav>
+
+    <main id="mainContent">
+        <section class="domain-register">
+            <h2>도메인 등록</h2>
+            <div class="form-group">
+                <input type="text" id="domainName" placeholder="원하는 도메인 이름 입력">
+                <select id="domainExt"></select>
             </div>
-        </header>
-
-        <div id="auth-section">
-            <div id="login-form" class="auth-form" style="display:none;">
-                <h2>로그인</h2>
-                <input type="text" id="login-username" placeholder="사용자명">
-                <input type="password" id="login-password" placeholder="비밀번호">
-                <button onclick="login()">로그인</button>
-                <button onclick="hideAuth()">취소</button>
+            <div id="paymentInfo" style="display:none;" class="alert">
+                <p>결제 필요: <span id="paymentAmount"></span>원</p>
+                <button id="paymentBtn">결제하기</button>
             </div>
-
-            <div id="register-form" class="auth-form" style="display:none;">
-                <h2>회원가입</h2>
-                <input type="text" id="reg-username" placeholder="사용자명">
-                <input type="email" id="reg-email" placeholder="이메일">
-                <input type="password" id="reg-password" placeholder="비밀번호">
-                <button onclick="register()">가입하기</button>
-                <button onclick="hideAuth()">취소</button>
+            <div class="ns-inputs">
+                <h3>네임서버 설정 (최대 4개)</h3>
+                <input type="text" id="ns1" placeholder="ns1.example.com" required>
+                <input type="text" id="ns2" placeholder="ns2.example.com">
+                <input type="text" id="ns3" placeholder="ns3.example.com">
+                <input type="text" id="ns4" placeholder="ns4.example.com">
             </div>
-        </div>
+            <button id="registerBtn" class="btn-primary">도메인 등록</button>
+        </section>
 
-        <div id="main-section" style="display:none;">
-            <div class="domain-form">
-                <h2>도메인 신청</h2>
-                <div class="form-group">
-                    <input type="text" id="domain-name" placeholder="원하는 도메인 이름">
-                    <select id="domain-ext"></select>
-                </div>
-                <div class="nameserver-section">
-                    <h3>네임서버 설정 (최대 4개)</h3>
-                    <input type="text" id="ns1" placeholder="네임서버 1 (예: ns1.example.com)">
-                    <input type="text" id="ns2" placeholder="네임서버 2">
-                    <input type="text" id="ns3" placeholder="네임서버 3 (선택)">
-                    <input type="text" id="ns4" placeholder="네임서버 4 (선택)">
-                </div>
-                <button onclick="requestDomain()">도메인 신청</button>
-            </div>
+        <section class="my-domains">
+            <h2>내 도메인 목록</h2>
+            <div id="domainList"></div>
+        </section>
+    </main>
 
-            <div class="my-domains">
-                <h2>내 도메인</h2>
-                <div id="domain-list"></div>
-            </div>
-
-            <button onclick="logout()" class="logout-btn">로그아웃</button>
-        </div>
-
-        <div id="message" class="message"></div>
-    </div>
-
-    <script src="/app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
