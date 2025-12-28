@@ -3,388 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>관리자 패널</title>
-    <link rel="stylesheet" href="/styles.css">
+    <title>관리자 페이지</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🔐 관리자 패널</h1>
-            <button onclick="logout()">로그아웃</button>
-        </header>
+    <nav>
+        <h1>🔧 관리자 대시보드</h1>
+        <button onclick="logout()" class="btn-secondary">로그아웃</button>
+    </nav>
 
-        <div class="admin-panel">
-            <h2>확장자 관리</h2>
-            <div class="form-group">
-                <input type="text" id="new-ext" placeholder="확장자 (예: .example.com)">
-                <input type="number" id="ext-price" placeholder="가격 (0=무료)" min="0">
-                <input type="url" id="payment-url" placeholder="결제 링크 (선택)">
-                <button onclick="addExtension()">추가</button>
-            </div>
-            <div id="ext-list"></div>
+    <main>
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('extensions')">확장자 관리</button>
+            <button class="tab" onclick="showTab('payments')">결제 승인</button>
+            <button class="tab" onclick="showTab('users')">사용자 관리</button>
+            <button class="tab" onclick="showTab('security')">보안 설정</button>
         </div>
 
-        <div class="admin-panel">
+        <section id="extensions" class="tab-content active">
+            <h2>확장자 추가/관리</h2>
+            <div class="form-group">
+                <input type="text" id="newExt" placeholder=".com, .net 등">
+                <input type="number" id="extPrice" placeholder="가격 (0=무료)">
+                <input type="text" id="paymentLink" placeholder="결제 링크 (선택)">
+                <button onclick="addExtension()" class="btn-primary">추가</button>
+            </div>
+            <div id="extList"></div>
+        </section>
+
+        <section id="payments" class="tab-content">
             <h2>결제 승인 대기</h2>
-            <div id="pending-payments"></div>
-        </div>
+            <div id="paymentQueue"></div>
+        </section>
 
-        <div class="admin-panel">
-            <h2>보안 봇 설정</h2>
-            <div class="form-group">
-                <input type="time" id="bot-start" value="00:00">
-                <input type="time" id="bot-end" value="23:59">
-                <button onclick="updateBotSchedule()">적용</button>
-            </div>
-            <p>현재 시간: <span id="current-time"></span> (KST)</p>
-            <p>보안 봇 상태: <span id="bot-status">활성</span></p>
-        </div>
-
-        <div class="admin-panel">
+        <section id="users" class="tab-content">
             <h2>사용자 관리</h2>
-            <div id="user-list"></div>
-        </div>
+            <div id="userList"></div>
+        </section>
 
-        <div class="admin-panel">
-            <h2>보안 로그</h2>
-            <div id="security-logs"></div>
-        </div>
-    </div>
+        <section id="security" class="tab-content">
+            <h2>보안봇 설정</h2>
+            <label>활동 시작 시간 (KST):</label>
+            <input type="time" id="securityStart">
+            <label>활동 종료 시간 (KST):</label>
+            <input type="time" id="securityEnd">
+            <button onclick="updateSecurityBot()" class="btn-primary">저장</button>
+            <div id="securityAlerts"></div>
+        </section>
+    </main>
 
-    <script>
-        let currentUser = null;
-
-        async function init() {
-            const user = localStorage.getItem('currentUser');
-            if (!user) {
-                window.location.href = '/';
-                return;
-            }
-            currentUser = JSON.parse(user);
-            if (currentUser.username !== 'admindomain') {
-                window.location.href = '/';
-                return;
-            }
-            
-            loadExtensions();
-            loadPendingPayments();
-            loadUsers();
-            loadSecurityLogs();
-            updateCurrentTime();
-            setInterval(updateCurrentTime, 1000);
-        }
-
-        function updateCurrentTime() {
-            const now = new Date();
-            const kstTime = new Date(now.toLocaleString('en-US', {timeZone: 'Asia/Seoul'}));
-            document.getElementById('current-time').textContent = kstTime.toLocaleTimeString('ko-KR');
-        }
-
-        async function addExtension() {
-            const name = document.getElementById('new-ext').value.trim();
-            const price = parseFloat(document.getElementById('ext-price').value) || 0;
-            const paymentUrl = document.getElementById('payment-url').value.trim();
-
-            if (!name) {
-                alert('확장자를 입력해주세요');
-                return;
-            }
-
-            if (!name.startsWith('.')) {
-                alert('확장자는 .으로 시작해야 합니다');
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/domains', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: 'addExtension',
-                        username: currentUser.username,
-                        name, price, paymentUrl
-                    })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    alert('확장자가 추가되었습니다');
-                    document.getElementById('new-ext').value = '';
-                    document.getElementById('ext-price').value = '';
-                    document.getElementById('payment-url').value = '';
-                    loadExtensions();
-                } else {
-                    alert(data.message || '실패');
-                }
-            } catch (e) {
-                alert('오류 발생');
-            }
-        }
-
-        async function loadExtensions() {
-            try {
-                const res = await fetch('/api/domains?action=getExtensions');
-                const data = await res.json();
-                
-                const list = document.getElementById('ext-list');
-                list.innerHTML = '<table><tr><th>확장자</th><th>가격</th><th>결제링크</th><th>작업</th></tr>' +
-                    data.extensions.map(e => `
-                        <tr>
-                            <td>${e.name}</td>
-                            <td>₩${e.price}</td>
-                            <td>${e.paymentUrl || '-'}</td>
-                            <td><button onclick="deleteExtension('${e.name}')">삭제</button></td>
-                        </tr>
-                    `).join('') + '</table>';
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        async function deleteExtension(name) {
-            if (!confirm(`${name} 확장자를 삭제하시겠습니까?`)) return;
-
-            try {
-                const res = await fetch('/api/domains', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: 'deleteExtension',
-                        username: currentUser.username,
-                        name
-                    })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    alert('삭제되었습니다');
-                    loadExtensions();
-                }
-            } catch (e) {
-                alert('오류 발생');
-            }
-        }
-
-        async function loadPendingPayments() {
-            try {
-                const res = await fetch('/api/domains?action=getPendingPayments');
-                const data = await res.json();
-                
-                const div = document.getElementById('pending-payments');
-                if (data.payments.length === 0) {
-                    div.innerHTML = '<p>대기중인 결제가 없습니다</p>';
-                } else {
-                    div.innerHTML = '<table><tr><th>사용자</th><th>도메인</th><th>가격</th><th>작업</th></tr>' +
-                        data.payments.map(p => `
-                            <tr>
-                                <td>${p.username}</td>
-                                <td>${p.domain}</td>
-                                <td>₩${p.price}</td>
-                                <td>
-                                    <button onclick="approvePayment('${p.domain}')">승인</button>
-                                    <button onclick="rejectPayment('${p.domain}')">거부</button>
-                                </td>
-                            </tr>
-                        `).join('') + '</table>';
-                }
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        async function approvePayment(domain) {
-            try {
-                const res = await fetch('/api/domains', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: 'approvePayment',
-                        username: currentUser.username,
-                        domain
-                    })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    alert('승인되었습니다');
-                    loadPendingPayments();
-                }
-            } catch (e) {
-                alert('오류 발생');
-            }
-        }
-
-        async function rejectPayment(domain) {
-            try {
-                const res = await fetch('/api/domains', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: 'rejectPayment',
-                        username: currentUser.username,
-                        domain
-                    })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    alert('거부되었습니다');
-                    loadPendingPayments();
-                }
-            } catch (e) {
-                alert('오류 발생');
-            }
-        }
-
-        async function loadUsers() {
-            try {
-                const res = await fetch('/api/domains?action=getAllUsers');
-                const data = await res.json();
-                
-                const div = document.getElementById('user-list');
-                div.innerHTML = '<table><tr><th>사용자명</th><th>이메일</th><th>상태</th><th>작업</th></tr>' +
-                    data.users.map(u => `
-                        <tr>
-                            <td>${u.username}</td>
-                            <td>${u.email}</td>
-                            <td><span class="status-badge status-${u.status}">${u.status}</span></td>
-                            <td>
-                                ${u.status !== 'suspended' ? `<button onclick="suspendUser('${u.username}')">정지</button>` : ''}
-                                ${u.status === 'suspended' ? `<button onclick="unsuspendUser('${u.username}')">해제</button>` : ''}
-                                <button onclick="blacklistUser('${u.username}')">블랙리스트</button>
-                            </td>
-                        </tr>
-                    `).join('') + '</table>';
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        async function suspendUser(username) {
-            if (!confirm(`${username}를 정지하시겠습니까?`)) return;
-
-            try {
-                const res = await fetch('/api/domains', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: 'suspendUser',
-                        username: currentUser.username,
-                        targetUser: username
-                    })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    alert('정지되었습니다');
-                    loadUsers();
-                }
-            } catch (e) {
-                alert('오류 발생');
-            }
-        }
-
-        async function unsuspendUser(username) {
-            try {
-                const res = await fetch('/api/domains', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: 'unsuspendUser',
-                        username: currentUser.username,
-                        targetUser: username
-                    })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    alert('해제되었습니다');
-                    loadUsers();
-                }
-            } catch (e) {
-                alert('오류 발생');
-            }
-        }
-
-        async function blacklistUser(username) {
-            if (!confirm(`${username}를 블랙리스트에 등재하시겠습니까?`)) return;
-
-            try {
-                const res = await fetch('/api/domains', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: 'blacklistUser',
-                        username: currentUser.username,
-                        targetUser: username
-                    })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    alert('블랙리스트에 등재되었습니다');
-                    loadUsers();
-                }
-            } catch (e) {
-                alert('오류 발생');
-            }
-        }
-
-        async function updateBotSchedule() {
-            const start = document.getElementById('bot-start').value;
-            const end = document.getElementById('bot-end').value;
-
-            try {
-                const res = await fetch('/api/domains', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: 'updateBotSchedule',
-                        username: currentUser.username,
-                        start, end
-                    })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    alert('보안 봇 스케줄이 업데이트되었습니다');
-                }
-            } catch (e) {
-                alert('오류 발생');
-            }
-        }
-
-        async function loadSecurityLogs() {
-            try {
-                const res = await fetch('/api/domains?action=getSecurityLogs');
-                const data = await res.json();
-                
-                const div = document.getElementById('security-logs');
-                if (data.logs.length === 0) {
-                    div.innerHTML = '<p>보안 로그가 없습니다</p>';
-                } else {
-                    div.innerHTML = '<table><tr><th>시간</th><th>유형</th><th>사용자</th><th>설명</th></tr>' +
-                        data.logs.slice(-20).reverse().map(l => `
-                            <tr>
-                                <td>${new Date(l.timestamp).toLocaleString('ko-KR')}</td>
-                                <td>${l.type}</td>
-                                <td>${l.username}</td>
-                                <td>${l.description}</td>
-                            </tr>
-                        `).join('') + '</table>';
-                }
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        function logout() {
-            localStorage.removeItem('currentUser');
-            window.location.href = '/';
-        }
-
-        window.onload = init;
-        setInterval(loadSecurityLogs, 10000);
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
