@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 - 도메인 제공 서비스</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <h1><a href="index.html">도메인 제공 서비스</a></h1>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="auth-form">
+            <h2>로그인</h2>
+            <form onsubmit="handleLogin(event)">
+                <input type="text" id="username" placeholder="사용자명" required>
+                <input type="password" id="password" placeholder="비밀번호" required>
+                <button type="submit">로그인</button>
+            </form>
+            <p>계정이 없으신가요? <a href="register.html">회원가입</a></p>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
