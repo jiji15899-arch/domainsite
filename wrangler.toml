@@ -1,6 +1,0 @@
-name = "free-domain-platform"
-compatibility_date = "2024-01-01"
-
-[[kv_namespaces]]
-binding = "DOMAIN_KV"
-id = "0d3a82e768e84e5ab1fc957b99fff2ac"
